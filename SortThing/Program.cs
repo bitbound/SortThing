@@ -1,6 +1,8 @@
-﻿using SixLabors.ImageSharp;
+﻿using Microsoft.Extensions.DependencyInjection;
+using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SortThing.Enums;
+using SortThing.Services;
 using System;
 using System.CommandLine;
 using System.CommandLine.Binding;
@@ -46,14 +48,23 @@ namespace SortThing
                 "If true, no file operations will actually be executed.");
             rootCommand.AddOption(opt3);
 
-            rootCommand.Handler = CommandHandler.Create<string, bool, bool>(Init);
+            rootCommand.Handler = CommandHandler.Create<string, bool, bool>(Run);
 
             return await rootCommand.InvokeAsync(args);
         }
 
-        private static async Task Init(string configPath, bool once, bool dryRun)
+        private static async Task Run(string configPath, bool once, bool dryRun)
         {
-            
+            ServiceContainer.Build();
+
+            if (once)
+            {
+                await ServiceContainer.Instance.GetRequiredService<IJobRunner>().RunJobs(configPath, dryRun);
+            }
+            else
+            {
+                await ServiceContainer.Instance.GetRequiredService<IJobWatcher>().WatchJobs(configPath, dryRun);
+            }
         }
     }
 }
