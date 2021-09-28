@@ -6,7 +6,8 @@
       "DestinationFile": "D:\\Sorted\\Photos\\{yyyy}\\{MM}\\{dd}\\{camera}\\{HH}{mm} - {filename}.{extension}",
       "IncludeExtensions": [ "png", "jpg", "jpeg" ],
       "ExcludeExtensions": [],
-      "OverwriteDestination": false
+      "OverwriteDestination": false,
+      "CreateNewIfExists":  false
     },
     {
       "Operation": "Move",
@@ -14,7 +15,8 @@
       "DestinationFile": "D:\\Sorted\\Videos\\{yyyy}\\{MM}\\{dd}\\{camera}\\{HH}{mm} - {filename}.{extension}",
       "IncludeExtensions": [ "mp4" ],
       "ExcludeExtensions": [],
-      "OverwriteDestination": false
+      "OverwriteDestination": false,
+      "CreateNewIfExists": false
     },
     {
       "Operation": "Move",
@@ -22,7 +24,8 @@
       "DestinationFile": "D:\\Sorted\\Files\\{yyyy}\\{MM}\\{dd}\\{HH}{mm} - {filename}.{extension}",
       "IncludeExtensions": [ "*" ],
       "ExcludeExtensions": [ "png", "jpg", "jpeg", "mp4" ],
-      "OverwriteDestination": false
+      "OverwriteDestination": false,
+      "CreateNewIfExists": true
     }
   ]
 }

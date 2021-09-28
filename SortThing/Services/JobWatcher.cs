@@ -1,4 +1,5 @@
-﻿using SortThing.Models;
+﻿using Microsoft.Extensions.Logging;
+using SortThing.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,9 +20,9 @@ namespace SortThing.Services
         private readonly static SemaphoreSlim _watchersLock = new(1, 1);
 
         private readonly IJobRunner _jobRunner;
-        private readonly IFileLogger _logger;
+        private readonly ILogger<JobWatcher> _logger;
 
-        public JobWatcher(IJobRunner jobRunner, IFileLogger logger)
+        public JobWatcher(IJobRunner jobRunner, ILogger<JobWatcher> logger)
         {
             _jobRunner = jobRunner;
             _logger = logger;
@@ -49,7 +50,7 @@ namespace SortThing.Services
                     }
                     catch (Exception ex)
                     {
-                        await _logger.Write(ex);
+                        _logger.LogError(ex, "Error while disposing of watcher.");
                     }
                     finally
                     {

@@ -1,4 +1,5 @@
-﻿using SixLabors.ImageSharp;
+﻿using Microsoft.Extensions.Logging;
+using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SortThing.Abstractions;
 using SortThing.Models;
@@ -17,14 +18,6 @@ namespace SortThing.Services
 
     public class MetadataReader : IMetadataReader
     {
-        private readonly IFileLogger _logger;
-
-        public MetadataReader(IFileLogger logger)
-        {
-            _logger = logger;
-        }
-
-
         /// <summary>
         /// Formats an EXIF DateTime to a format that can be parsed in .NET.
         /// </summary>
@@ -89,7 +82,7 @@ namespace SortThing.Services
                     CameraModel = camera
                 });
             }
-            catch (Exception ex)
+            catch
             {
                 return Result.Fail<ExifData>("Error while reading metadata.");
             }

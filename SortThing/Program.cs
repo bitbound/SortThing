@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using SortThing.Services;
 using System;
 using System.CommandLine;
@@ -54,20 +55,24 @@ namespace SortThing
                 Once = once;
                 DryRun = dryRun;
 
-                using IHost host = Host.CreateDefaultBuilder(args)
+                var host = Host.CreateDefaultBuilder(args)
                      .UseWindowsService(options =>
                      {
                          options.ServiceName = "SortThing";
                      })
                      .ConfigureServices(services =>
                      {
+                         services.AddLogging();
                          services.AddScoped<IMetadataReader, MetadataReader>();
                          services.AddScoped<IJobRunner, JobRunner>();
                          services.AddSingleton<IJobWatcher, JobWatcher>();
                          services.AddScoped<IPathTransformer, PathTransformer>();
                          services.AddScoped<IFileSystem, FileSystem>();
-                         services.AddScoped<IFileLogger, FileLogger>();
                          services.AddHostedService<SortBackgroundService>();
+                     })
+                     .ConfigureLogging(builder =>
+                     {
+                         builder.AddProvider(new FileLoggerProvider());
                      })
                      .Build();
 

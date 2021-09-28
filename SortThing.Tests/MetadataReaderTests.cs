@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using SortThing.Services;
@@ -11,15 +12,13 @@ namespace SortThing.Tests
     public class MetadataReaderTests
     {
         private readonly string _assemblyDir = Path.GetDirectoryName(typeof(MetadataReaderTests).Assembly.Location);
-        private Mock<IFileLogger> _logger;
         private MetadataReader _metadataReader;
 
 
         [TestInitialize]
         public void Init()
         {
-            _logger = new Mock<IFileLogger>();
-            _metadataReader = new MetadataReader(_logger.Object);
+            _metadataReader = new MetadataReader();
         }
 
         [TestMethod]

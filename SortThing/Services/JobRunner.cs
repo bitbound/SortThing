@@ -1,4 +1,5 @@
-﻿using SortThing.Models;
+﻿using Microsoft.Extensions.Logging;
+using SortThing.Models;
 using System;
 using System.IO;
 using System.Linq;
@@ -24,13 +25,13 @@ namespace SortThing.Services
             RecurseSubdirectories = true
         };
 
-        private readonly IFileLogger _logger;
-        private readonly FileSystem _fileSystem;
+        private readonly ILogger<JobRunner> _logger;
+        private readonly IFileSystem _fileSystem;
         private readonly IMetadataReader _metaDataReader;
         private readonly IPathTransformer _pathTransformer;
 
 
-        public JobRunner(FileSystem fileSystem, IMetadataReader metaDataReader, IPathTransformer pathTransformer, IFileLogger logger)
+        public JobRunner(IFileSystem fileSystem, IMetadataReader metaDataReader, IPathTransformer pathTransformer, ILogger<JobRunner> logger)
         {
             // TODO: Implement and use IFileSystem.
             _fileSystem = fileSystem;
@@ -45,7 +46,7 @@ namespace SortThing.Services
             {
                 await _runLock.WaitAsync();
 
-                await _logger.Write($"Starting job run: {JsonSerializer.Serialize(job)}");
+                _logger.LogInformation($"Starting job run: {JsonSerializer.Serialize(job)}");
 
                 foreach (var extension in job.IncludeExtensions)
                 {
@@ -82,27 +83,34 @@ namespace SortThing.Services
 
                             if (dryRun)
                             {
-                                await _logger.Write($"Dry run. Skipping file operation.  Source: {file}.  Destination: {destinationFile}.");
+                                _logger.LogInformation($"Dry run. Skipping file operation.  Source: {file}.  Destination: {destinationFile}.");
                                 continue;
                             }
 
-                            if (!job.OverwriteDestination && File.Exists(destinationFile))
+                            if (File.Exists(destinationFile) &&
+                                !job.OverwriteDestination &&
+                                !job.CreateNewIfExists)
                             {
-                                await _logger.Write($"Destination file exists.  Skipping.  Destination file: {destinationFile}");
+                                _logger.LogInformation($"Destination file exists.  Skipping.  Destination file: {destinationFile}");
                                 continue;
                             }
 
-                            await _logger.Write($"Starting file operation: {job.Operation}.  Source: {file}.  Destination: {destinationFile}.");
+                            if (job.CreateNewIfExists)
+                            {
+                                destinationFile = _pathTransformer.GetUniqueFilePath(destinationFile);
+                            }
+
+                            _logger.LogInformation($"Starting file operation: {job.Operation}.  Source: {file}.  Destination: {destinationFile}.");
 
                             Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
 
                             switch (job.Operation)
                             {
                                 case Enums.SortOperation.Move:
-                                    File.Move(file, destinationFile);
+                                    File.Move(file, destinationFile, true);
                                     break;
                                 case Enums.SortOperation.Copy:
-                                    File.Copy(file, destinationFile);
+                                    File.Copy(file, destinationFile, true);
                                     break;
                                 default:
                                     break;
@@ -110,14 +118,14 @@ namespace SortThing.Services
                         }
                         catch (Exception ex)
                         {
-                            await _logger.Write(ex, $"Error running job.");
+                            _logger.LogError(ex, $"Error while running job.");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                await _logger.Write(ex);
+                _logger.LogError(ex, "Error while running job.");
             }
             finally
             {

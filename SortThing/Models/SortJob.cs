@@ -15,5 +15,6 @@ namespace SortThing.Models
         public string SourceDirectory { get; init; }
         public string DestinationFile { get; init; }
         public bool OverwriteDestination { get; init; }
+        public bool CreateNewIfExists { get; init; }
     }
 }

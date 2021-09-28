@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,9 +14,9 @@ namespace SortThing.Services
     {
         private readonly IJobRunner _jobRunner;
         private readonly IJobWatcher _jobWatcher;
-        private readonly IFileLogger _logger;
+        private readonly ILogger<BackgroundService> _logger;
 
-        public SortBackgroundService(IJobRunner jobRunner, IJobWatcher jobWatcher, IFileLogger logger)
+        public SortBackgroundService(IJobRunner jobRunner, IJobWatcher jobWatcher, ILogger<BackgroundService> logger)
         {
             _jobRunner = jobRunner;
             _jobWatcher = jobWatcher;
@@ -28,18 +29,18 @@ namespace SortThing.Services
             {
                 if (string.IsNullOrWhiteSpace(Program.ConfigPath))
                 {
-                    await _logger.Write("Config path not specified.  Looking for config.json in application directory.");
+                    _logger.LogInformation("Config path not specified.  Looking for config.json in application directory.");
 
                     var appDir = Path.GetDirectoryName(typeof(Program).Assembly.Location);
                     var configPath = Path.Combine(appDir, "config.json");
 
                     if (File.Exists(configPath))
                     {
-                        await _logger.Write($"Found config file: {configPath}.");
+                        _logger.LogInformation($"Found config file: {configPath}.");
                     }
                     else
                     {
-                        await _logger.Write("No config file was found.  Exiting.");
+                        _logger.LogWarning("No config file was found.  Exiting.");
                         return;
                     }
                 }
@@ -56,7 +57,7 @@ namespace SortThing.Services
             }
             catch (Exception ex)
             {
-                await _logger.Write(ex);
+                _logger.LogError(ex, "Error while starting background service.");
             }
         }
     }

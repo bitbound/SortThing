@@ -1,94 +1,71 @@
-﻿using SortThing.Enums;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SortThing.Services
 {
-    public interface IFileLogger
+    public class FileLogger : ILogger
     {
-        Task DeleteLogs();
-        Task<byte[]> ReadAllLogs();
-        Task Write(Exception ex, EventType eventType = EventType.Error, [CallerMemberName] string callerName = "");
-        Task Write(Exception ex, string message, EventType eventType = EventType.Error, [CallerMemberName] string callerName = "");
-        Task Write(string message, EventType eventType = EventType.Info, [CallerMemberName] string callerName = "");
-    }
-
-    public class FileLogger : IFileLogger
-    {
-
         private readonly string _logPath = Path.Combine(Path.GetTempPath(), "SortThing.log");
         private readonly SemaphoreSlim _writeLock = new(1, 1);
+        private readonly string _categoryName;
 
-        public FileLogger()
+        protected static ConcurrentStack<string> ScopeStack { get; } = new ConcurrentStack<string>();
+
+        public FileLogger(string categoryName)
         {
-            Console.WriteLine($"Logger initialized.  Writing to {_logPath}.\n\n");
+            _categoryName = categoryName;
         }
 
-        public async Task DeleteLogs()
+        public IDisposable BeginScope<TState>(TState state)
         {
-            try
-            {
-                await _writeLock.WaitAsync();
-
-                if (File.Exists(_logPath))
-                {
-                    File.Delete(_logPath);
-                }
-            }
-            catch { }
-            finally
-            {
-                _writeLock.Release();
-            }
+            ScopeStack.Push(state.ToString());
+            return new NoopDisposable();
         }
 
-        public async Task<byte[]> ReadAllLogs()
+        public bool IsEnabled(LogLevel logLevel)
         {
-            try
+            switch (logLevel)
             {
-                await _writeLock.WaitAsync();
-
-                await CheckLogFileExists();
-
-                return await File.ReadAllBytesAsync(_logPath);
+#if DEBUG
+                case LogLevel.Trace:
+                case LogLevel.Debug:
+                    return true;
+#endif
+                case LogLevel.Information:
+                case LogLevel.Warning:
+                case LogLevel.Error:
+                case LogLevel.Critical:
+                    return true;
+                case LogLevel.None:
+                    break;
+                default:
+                    break;
             }
-            catch (Exception ex)
-            {
-                await Write(ex);
-                return Array.Empty<byte>();
-            }
-            finally
-            {
-                _writeLock.Release();
-            }
+            return false;
         }
 
-        public async Task Write(string message, EventType eventType = EventType.Info, [CallerMemberName] string callerName = "")
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
-            try
-            {
-                // TODO: Pool and sink to disk.
-                await _writeLock.WaitAsync();
+            var scopeStack = ScopeStack.Any() ?
+                new string[] { ScopeStack.FirstOrDefault(), ScopeStack.LastOrDefault() } :
+                Array.Empty<string>();
 
-                await CheckLogFileExists();
-                var formattedMessage = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t[{eventType}]\t[{callerName}]\t{message}{Environment.NewLine}";
-                File.AppendAllText(_logPath, formattedMessage);
-                Console.WriteLine(formattedMessage);
-            }
-            catch { }
-            finally
-            {
-                _writeLock.Release();
-            }
+            
+            WriteLog(logLevel, _categoryName, state.ToString(), exception, scopeStack).Wait(3000);
         }
 
-        public async Task Write(Exception ex, EventType eventType = EventType.Error, [CallerMemberName] string callerName = "")
+        private async Task WriteLog(LogLevel logLevel, string categoryName, string state, Exception exception, string[] scopeStack)
         {
             try
             {
@@ -97,27 +74,29 @@ namespace SortThing.Services
 
                 await CheckLogFileExists();
 
-                var exception = ex;
+                var ex = exception;
+                var exMessage = exception?.Message;
 
-                while (exception != null)
+                while (ex?.InnerException is not null)
                 {
-                    var formattedMessage = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t[{eventType}]\t[{callerName}]\t{exception?.Message}\t{exception?.StackTrace}\t{exception?.Source}{Environment.NewLine}";
-                    File.AppendAllText(_logPath, formattedMessage);
-                    Console.WriteLine(formattedMessage);
-                    exception = exception.InnerException;
+                    exMessage += $" | {ex.InnerException.Message}";
+                    ex = ex.InnerException;
                 }
+
+                var message = $"[{logLevel}]\t" +
+                    $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t" +
+                    $"[{string.Join(" - ", scopeStack)} - {categoryName}]\t" +
+                    $"Message: {state}\t" +
+                    $"Exception: {exMessage}{Environment.NewLine}";
+
+                File.AppendAllText(_logPath, message);
+
             }
             catch { }
             finally
             {
                 _writeLock.Release();
             }
-        }
-
-        public async Task Write(Exception ex, string message, EventType eventType = EventType.Error, [CallerMemberName] string callerName = "")
-        {
-            await Write(message, eventType, callerName);
-            await Write(ex, eventType, callerName);
         }
 
         private async Task CheckLogFileExists()
@@ -125,11 +104,12 @@ namespace SortThing.Services
             if (!File.Exists(_logPath))
             {
                 File.Create(_logPath).Close();
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                if (OperatingSystem.IsLinux())
                 {
                     await Process.Start("sudo", $"chmod 775 {_logPath}").WaitForExitAsync();
                 }
             }
+
             if (File.Exists(_logPath))
             {
                 var fi = new FileInfo(_logPath);
@@ -139,6 +119,14 @@ namespace SortThing.Services
                     await File.WriteAllLinesAsync(_logPath, content.Skip(10));
                     fi = new FileInfo(_logPath);
                 }
+            }
+        }
+
+        private class NoopDisposable : IDisposable
+        {
+            public void Dispose()
+            {
+                ScopeStack.TryPop(out _);
             }
         }
     }
