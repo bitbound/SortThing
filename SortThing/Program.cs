@@ -65,7 +65,7 @@ namespace SortThing
                          services.AddScoped<IJobRunner, JobRunner>();
                          services.AddSingleton<IJobWatcher, JobWatcher>();
                          services.AddScoped<IPathTransformer, PathTransformer>();
-                         services.AddScoped<FileSystem, FileSystem>();
+                         services.AddScoped<IFileSystem, FileSystem>();
                          services.AddScoped<IFileLogger, FileLogger>();
                          services.AddHostedService<SortBackgroundService>();
                      })
