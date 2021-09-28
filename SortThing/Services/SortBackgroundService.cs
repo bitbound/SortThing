@@ -33,11 +33,14 @@ namespace SortThing.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(Program.ConfigPath))
+                var configPath = Program.ConfigPath;
+
+                if (string.IsNullOrWhiteSpace(configPath))
                 {
                     _logger.LogInformation("Config path not specified.  Looking for config.json in application directory.");
 
-                    var configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
+                    var exeDir = Path.GetDirectoryName(Environment.CommandLine.Split(" ").First());
+                    configPath = Path.Combine(exeDir, "config.json");
 
                     if (File.Exists(configPath))
                     {
@@ -45,13 +48,13 @@ namespace SortThing.Services
                     }
                     else
                     {
-                        _logger.LogWarning("No config file was found.  Exiting.");
+                        _logger.LogWarning($"No config file was found at {configPath}.  Exiting.");
                         _appLifetime.StopApplication();
                         return;
                     }
                 }
                 
-                await _jobRunner.RunJobs(Program.ConfigPath, Program.DryRun);
+                await _jobRunner.RunJobs(configPath, Program.DryRun);
                 
                 if (Program.Once)
                 {
@@ -59,7 +62,7 @@ namespace SortThing.Services
                     return;
                 }
 
-                await _jobWatcher.WatchJobs(Program.ConfigPath, Program.DryRun);
+                await _jobWatcher.WatchJobs(configPath, Program.DryRun);
             }
             catch (Exception ex)
             {

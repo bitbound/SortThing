@@ -50,19 +50,13 @@ namespace SortThing.Services
 
                 foreach (var extension in job.IncludeExtensions)
                 {
-                    var files = Directory.GetFiles(job.SourceDirectory, $"*.{extension.Replace(".","")}", _enumOptions);
-
+                    var files = Directory.GetFiles(job.SourceDirectory, $"*.{extension.Replace(".","")}", _enumOptions)
+                        .Where(file => !job.ExcludeExtensions.Any(ext => ext.Equals(Path.GetExtension(file)[1..], StringComparison.OrdinalIgnoreCase)));
+                    
                     foreach (var file in files)
                     {
                         try
                         {
-                            var ext = Path.GetExtension(file)[1..];
-
-                            if (job.ExcludeExtensions.Any(x => x.Equals(ext, StringComparison.OrdinalIgnoreCase)))
-                            {
-                                continue;
-                            }
-
                             var result = await _metaDataReader.TryGetExifData(file);
 
                             string destinationFile;
