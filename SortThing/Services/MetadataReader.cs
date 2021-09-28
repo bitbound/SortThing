@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+﻿using ExifLib;
 using SortThing.Abstractions;
 using SortThing.Models;
 using System;
@@ -13,7 +11,7 @@ namespace SortThing.Services
     public interface IMetadataReader
     {
         Result<DateTime> ParseExifDateTime(string exifDateTime);
-        Task<Result<ExifData>> TryGetExifData(string filePath);
+        Result<ExifData> TryGetExifData(string filePath);
     }
 
     public class MetadataReader : IMetadataReader
@@ -48,7 +46,7 @@ namespace SortThing.Services
         }
 
 
-        public async Task<Result<ExifData>> TryGetExifData(string filePath)
+        public Result<ExifData> TryGetExifData(string filePath)
         {
             try
             {
@@ -57,29 +55,20 @@ namespace SortThing.Services
                     return Result.Fail<ExifData>("File could not be found.");
                 }
 
-                var img = await Image.LoadAsync(filePath);
+                using var reader = new ExifReader(filePath);
 
-                var date = img.Metadata?.ExifProfile?.GetValue(ExifTag.DateTimeOriginal) ??
-                    img.Metadata?.ExifProfile?.GetValue(ExifTag.DateTimeDigitized);
-
-                if (string.IsNullOrWhiteSpace(date?.Value))
+                if (!reader.GetTagValue<DateTime>(ExifTags.DateTimeOriginal, out var dateTaken) &&
+                    !reader.GetTagValue(ExifTags.DateTimeDigitized, out dateTaken))
                 {
                     return Result.Fail<ExifData>("DateTime is missing from metadata.");
                 }
 
-                var parseResult = ParseExifDateTime(date.Value);
-
-                if (!parseResult.IsSuccess)
-                {
-                    return Result.Fail<ExifData>(parseResult.Error);
-                }
-
-                var camera = img.Metadata.ExifProfile.GetValue(ExifTag.Model)?.Value;
+                reader.GetTagValue<string>(ExifTags.Model, out var camera);
 
                 return Result.Ok(new ExifData()
                 {
-                    DateTaken = parseResult.Value,
-                    CameraModel = camera
+                    DateTaken = dateTaken,
+                    CameraModel = camera?.Trim()
                 });
             }
             catch

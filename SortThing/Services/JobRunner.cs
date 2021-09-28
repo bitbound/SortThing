@@ -57,7 +57,7 @@ namespace SortThing.Services
                     {
                         try
                         {
-                            var result = await _metaDataReader.TryGetExifData(file);
+                            var result = _metaDataReader.TryGetExifData(file);
 
                             string destinationFile;
 

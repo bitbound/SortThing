@@ -52,25 +52,25 @@ namespace SortThing.Tests
         }
 
         [TestMethod]
-        public async Task TryGetExifData_GivenInvalidPath_Fails()
+        public void TryGetExifData_GivenInvalidPath_Fails()
         {
-            var result = await _metadataReader.TryGetExifData(string.Empty);
+            var result = _metadataReader.TryGetExifData(string.Empty);
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual("File could not be found.", result.Error);
 
-            result = await _metadataReader.TryGetExifData(AppContext.BaseDirectory);
+            result = _metadataReader.TryGetExifData(AppContext.BaseDirectory);
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual("File could not be found.", result.Error);
 
-            result = await _metadataReader.TryGetExifData(Path.Combine(AppContext.BaseDirectory, "Resources", "PicWithoutExif.jpg"));
+            result = _metadataReader.TryGetExifData(Path.Combine(AppContext.BaseDirectory, "Resources", "PicWithoutExif.jpg"));
             Assert.IsFalse(result.IsSuccess);
-            Assert.AreEqual("DateTime is missing from metadata.", result.Error);
+            Assert.AreEqual("Error while reading metadata.", result.Error);
         }
 
         [TestMethod]
-        public async Task TryGetExifData_GivenValidPath_Succeeds()
+        public void TryGetExifData_GivenValidPath_Succeeds()
         {
-            var result = await _metadataReader.TryGetExifData(Path.Combine(AppContext.BaseDirectory, "Resources", "PicWithExif.jpg"));
+            var result = _metadataReader.TryGetExifData(Path.Combine(AppContext.BaseDirectory, "Resources", "PicWithExif.jpg"));
             Assert.IsTrue(result.IsSuccess);
             Assert.AreEqual(result.Value.DateTaken, new DateTime(2015, 11, 14, 14, 41, 14));
             Assert.AreEqual(result.Value.CameraModel, "Lumia 640 LTE");
