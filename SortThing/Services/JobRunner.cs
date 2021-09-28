@@ -25,12 +25,15 @@ namespace SortThing.Services
         };
 
         private readonly ILogger _logger;
+        private readonly IFileSystem _fileSystem;
         private readonly IMetadataReader _metaDataReader;
         private readonly IPathTransformer _pathTransformer;
 
 
-        public JobRunner(IMetadataReader metaDataReader, IPathTransformer pathTransformer, ILogger logger)
+        public JobRunner(IFileSystem fileSystem, IMetadataReader metaDataReader, IPathTransformer pathTransformer, ILogger logger)
         {
+            // TODO: Implement and use IFileSystem.
+            _fileSystem = fileSystem;
             _metaDataReader = metaDataReader;
             _pathTransformer = pathTransformer;
             _logger = logger;

@@ -22,6 +22,7 @@ namespace SortThing
             serviceCollection.AddScoped<IJobRunner, JobRunner>();
             serviceCollection.AddSingleton<IJobWatcher, JobWatcher>();
             serviceCollection.AddScoped<IPathTransformer, PathTransformer>();
+            serviceCollection.AddScoped<IFileSystem, FileSystem>();
             serviceCollection.AddScoped<ILogger, Logger>();
 
             return serviceCollection.BuildServiceProvider();

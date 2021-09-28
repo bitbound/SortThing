@@ -70,24 +70,18 @@ namespace SortThing
                 {
                     var logger = ServiceContainer.Instance.GetRequiredService<ILogger>();
 
-                    await logger.Write("Config path not specified.  Looking in application directory.");
+                    await logger.Write("Config path not specified.  Looking for config.json in application directory.");
 
                     var appDir = Path.GetDirectoryName(typeof(Program).Assembly.Location);
+                    configPath = Path.Combine(appDir, "config.json");
 
-                    var matches = Directory.GetFiles(appDir, "*config*.json", new EnumerationOptions()
+                    if (File.Exists(configPath))
                     {
-                        MatchCasing = MatchCasing.CaseInsensitive,
-                        RecurseSubdirectories = true
-                    });
-
-                    if (matches.Any())
-                    {
-                        configPath = matches.First();
                         await logger.Write($"Found config file: {configPath}.");
                     }
                     else
                     {
-                        await logger.Write("No config files found.  Exiting.");
+                        await logger.Write("No config file was found.  Exiting.");
                         return;
                     }
                 }
