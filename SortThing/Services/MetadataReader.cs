@@ -17,9 +17,9 @@ namespace SortThing.Services
 
     public class MetadataReader : IMetadataReader
     {
-        private readonly ILogger _logger;
+        private readonly IFileLogger _logger;
 
-        public MetadataReader(ILogger logger)
+        public MetadataReader(IFileLogger logger)
         {
             _logger = logger;
         }

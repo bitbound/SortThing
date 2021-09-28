@@ -11,14 +11,14 @@ namespace SortThing.Tests
     public class MetadataReaderTests
     {
         private readonly string _assemblyDir = Path.GetDirectoryName(typeof(MetadataReaderTests).Assembly.Location);
-        private Mock<ILogger> _logger;
+        private Mock<IFileLogger> _logger;
         private MetadataReader _metadataReader;
 
 
         [TestInitialize]
         public void Init()
         {
-            _logger = new Mock<ILogger>();
+            _logger = new Mock<IFileLogger>();
             _metadataReader = new MetadataReader(_logger.Object);
         }
 

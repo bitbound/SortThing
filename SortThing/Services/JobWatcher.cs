@@ -19,9 +19,9 @@ namespace SortThing.Services
         private readonly static SemaphoreSlim _watchersLock = new(1, 1);
 
         private readonly IJobRunner _jobRunner;
-        private readonly ILogger _logger;
+        private readonly IFileLogger _logger;
 
-        public JobWatcher(IJobRunner jobRunner, ILogger logger)
+        public JobWatcher(IJobRunner jobRunner, IFileLogger logger)
         {
             _jobRunner = jobRunner;
             _logger = logger;

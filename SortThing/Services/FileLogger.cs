@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SortThing.Services
 {
-    public interface ILogger
+    public interface IFileLogger
     {
         Task DeleteLogs();
         Task<byte[]> ReadAllLogs();
@@ -19,13 +19,13 @@ namespace SortThing.Services
         Task Write(string message, EventType eventType = EventType.Info, [CallerMemberName] string callerName = "");
     }
 
-    public class Logger : ILogger
+    public class FileLogger : IFileLogger
     {
 
         private readonly string _logPath = Path.Combine(Path.GetTempPath(), "SortThing.log");
         private readonly SemaphoreSlim _writeLock = new(1, 1);
 
-        public Logger()
+        public FileLogger()
         {
             Console.WriteLine($"Logger initialized.  Writing to {_logPath}.\n\n");
         }

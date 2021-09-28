@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace SortThing.Services
 {
-    public interface IFileSystem
+    public interface FileSystem
     {
 
     }
 
-    public class FileSystem : IFileSystem
+    public class FileSystem : FileSystem
     {
         // TODO
     }

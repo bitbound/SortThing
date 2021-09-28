@@ -24,13 +24,13 @@ namespace SortThing.Services
             RecurseSubdirectories = true
         };
 
-        private readonly ILogger _logger;
-        private readonly IFileSystem _fileSystem;
+        private readonly IFileLogger _logger;
+        private readonly FileSystem _fileSystem;
         private readonly IMetadataReader _metaDataReader;
         private readonly IPathTransformer _pathTransformer;
 
 
-        public JobRunner(IFileSystem fileSystem, IMetadataReader metaDataReader, IPathTransformer pathTransformer, ILogger logger)
+        public JobRunner(FileSystem fileSystem, IMetadataReader metaDataReader, IPathTransformer pathTransformer, IFileLogger logger)
         {
             // TODO: Implement and use IFileSystem.
             _fileSystem = fileSystem;

@@ -1,13 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using SortThing.Services;
 using System;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.ServiceProcess;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +14,10 @@ namespace SortThing
 {
     public class Program
     {
+        public static string ConfigPath { get; private set; }
+        public static bool DryRun { get; private set; }
+        public static bool Once { get; private set; }
+
         public static async Task<int> Main(string[] args)
         {
             var rootCommand = new RootCommand("Sort your photos into folders based on metadata.");
@@ -47,59 +50,31 @@ namespace SortThing
 
             rootCommand.Handler = CommandHandler.Create((string configPath, bool once, bool dryRun) =>
             {
-                return Run(configPath, once, dryRun, CancellationToken.None);
+                ConfigPath = configPath;
+                Once = once;
+                DryRun = dryRun;
+
+                using IHost host = Host.CreateDefaultBuilder(args)
+                     .UseWindowsService(options =>
+                     {
+                         options.ServiceName = "SortThing";
+                     })
+                     .ConfigureServices(services =>
+                     {
+                         services.AddScoped<IMetadataReader, MetadataReader>();
+                         services.AddScoped<IJobRunner, JobRunner>();
+                         services.AddSingleton<IJobWatcher, JobWatcher>();
+                         services.AddScoped<IPathTransformer, PathTransformer>();
+                         services.AddScoped<FileSystem, FileSystem>();
+                         services.AddScoped<IFileLogger, FileLogger>();
+                         services.AddHostedService<SortBackgroundService>();
+                     })
+                     .Build();
+
+                    return host.RunAsync();
             });
 
             return await rootCommand.InvokeAsync(args);
-        }
-
-        public static async Task Run(string configPath, bool once, bool dryRun, CancellationToken appExit)
-        {
-            try
-            {
-                ServiceContainer.Build();
-
-                if (OperatingSystem.IsWindows() &&
-                    !Environment.UserInteractive &&
-                    Process.GetCurrentProcess().SessionId == 0)
-                {
-                    ServiceBase.Run(new WindowsService());
-                }
-
-                if (string.IsNullOrWhiteSpace(configPath))
-                {
-                    var logger = ServiceContainer.Instance.GetRequiredService<ILogger>();
-
-                    await logger.Write("Config path not specified.  Looking for config.json in application directory.");
-
-                    var appDir = Path.GetDirectoryName(typeof(Program).Assembly.Location);
-                    configPath = Path.Combine(appDir, "config.json");
-
-                    if (File.Exists(configPath))
-                    {
-                        await logger.Write($"Found config file: {configPath}.");
-                    }
-                    else
-                    {
-                        await logger.Write("No config file was found.  Exiting.");
-                        return;
-                    }
-                }
-
-                if (once)
-                {
-                    await ServiceContainer.Instance.GetRequiredService<IJobRunner>().RunJobs(configPath, dryRun);
-                }
-                else
-                {
-                    await ServiceContainer.Instance.GetRequiredService<IJobWatcher>().WatchJobs(configPath, dryRun);
-                    await Task.Delay(-1, appExit);
-                }
-            }
-            catch (Exception ex)
-            {
-                await ServiceContainer.Instance.GetRequiredService<ILogger>().Write(ex);
-            }
         }
     }
 }
