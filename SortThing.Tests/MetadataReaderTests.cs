@@ -3,7 +3,6 @@ using Moq;
 using SortThing.Services;
 using System;
 using System.IO;
-using System.Reflection;
 using System.Threading.Tasks;
 
 namespace SortThing.Tests

@@ -1,12 +1,10 @@
 ﻿using SortThing.Enums;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,6 +24,11 @@ namespace SortThing.Services
 
         private readonly string _logPath = Path.Combine(Path.GetTempPath(), "SortThing.log");
         private readonly SemaphoreSlim _writeLock = new(1, 1);
+
+        public Logger()
+        {
+            Console.WriteLine($"Logger initialized.  Writing to {_logPath}.\n\n");
+        }
 
         public async Task DeleteLogs()
         {
@@ -70,11 +73,13 @@ namespace SortThing.Services
         {
             try
             {
+                // TODO: Pool and sink to disk.
                 await _writeLock.WaitAsync();
 
                 await CheckLogFileExists();
-                File.AppendAllText(_logPath, $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t[{eventType}]\t[{callerName}]\t{message}{Environment.NewLine}");
-                Console.WriteLine(message);
+                var formattedMessage = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t[{eventType}]\t[{callerName}]\t{message}{Environment.NewLine}";
+                File.AppendAllText(_logPath, formattedMessage);
+                Console.WriteLine(formattedMessage);
             }
             catch { }
             finally
@@ -87,6 +92,7 @@ namespace SortThing.Services
         {
             try
             {
+                // TODO: Pool and sink to disk.
                 await _writeLock.WaitAsync();
 
                 await CheckLogFileExists();
@@ -95,8 +101,9 @@ namespace SortThing.Services
 
                 while (exception != null)
                 {
-                    File.AppendAllText(_logPath, $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t[{eventType}]\t[{callerName}]\t{exception?.Message}\t{exception?.StackTrace}\t{exception?.Source}{Environment.NewLine}");
-                    Console.WriteLine(exception.Message);
+                    var formattedMessage = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t[{eventType}]\t[{callerName}]\t{exception?.Message}\t{exception?.StackTrace}\t{exception?.Source}{Environment.NewLine}";
+                    File.AppendAllText(_logPath, formattedMessage);
+                    Console.WriteLine(formattedMessage);
                     exception = exception.InnerException;
                 }
             }

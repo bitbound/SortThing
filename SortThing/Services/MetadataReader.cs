@@ -3,10 +3,8 @@ using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SortThing.Abstractions;
 using SortThing.Models;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SortThing.Services
@@ -93,7 +91,6 @@ namespace SortThing.Services
             }
             catch (Exception ex)
             {
-                await _logger.Write(ex);
                 return Result.Fail<ExifData>("Error while reading metadata.");
             }
         }

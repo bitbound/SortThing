@@ -1,10 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using SortThing.Services;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SortThing
 {
@@ -25,6 +21,7 @@ namespace SortThing
             serviceCollection.AddScoped<IMetadataReader, MetadataReader>();
             serviceCollection.AddScoped<IJobRunner, JobRunner>();
             serviceCollection.AddSingleton<IJobWatcher, JobWatcher>();
+            serviceCollection.AddScoped<IPathTransformer, PathTransformer>();
             serviceCollection.AddScoped<ILogger, Logger>();
 
             return serviceCollection.BuildServiceProvider();

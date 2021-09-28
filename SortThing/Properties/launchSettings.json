@@ -1,7 +1,8 @@
 {
   "profiles": {
     "SortThing": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "-c \"C:\\Users\\trans\\Desktop\\test.json\""
     }
   }
 }

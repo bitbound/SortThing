@@ -1,13 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace SortThing.Abstractions
+﻿namespace SortThing.Abstractions
 {
-    [DataContract]
     public class Result
     {
         public static Result Ok()
@@ -35,14 +27,11 @@ namespace SortThing.Abstractions
             Error = error;
         }
 
-        [DataMember]
         public bool IsSuccess { get; init; }
 
-        [DataMember]
         public string Error { get; init; }
     }
 
-    [DataContract]
     public class Result<T>
     {
         public Result(bool isSuccess, T value, string error)
@@ -52,13 +41,10 @@ namespace SortThing.Abstractions
             Value = value;
         }
 
-        [DataMember]
         public bool IsSuccess { get; init; }
 
-        [DataMember]
         public string Error { get; init; }
 
-        [DataMember]
         public T Value { get; init; }
     }
 
