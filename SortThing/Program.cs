@@ -15,9 +15,11 @@ namespace SortThing
 {
     public class Program
     {
+        private static CancellationTokenSource _appExitSource = new();
         public static string ConfigPath { get; private set; }
         public static bool DryRun { get; private set; }
         public static bool Once { get; private set; }
+
 
         public static async Task<int> Main(string[] args)
         {
@@ -55,28 +57,28 @@ namespace SortThing
                 Once = once;
                 DryRun = dryRun;
 
-                var host = Host.CreateDefaultBuilder(args)
-                     .UseWindowsService(options =>
-                     {
-                         options.ServiceName = "SortThing";
-                     })
-                     .ConfigureServices(services =>
-                     {
-                         services.AddLogging();
-                         services.AddScoped<IMetadataReader, MetadataReader>();
-                         services.AddScoped<IJobRunner, JobRunner>();
-                         services.AddSingleton<IJobWatcher, JobWatcher>();
-                         services.AddScoped<IPathTransformer, PathTransformer>();
-                         services.AddScoped<IFileSystem, FileSystem>();
-                         services.AddHostedService<SortBackgroundService>();
-                     })
-                     .ConfigureLogging(builder =>
-                     {
-                         builder.AddProvider(new FileLoggerProvider());
-                     })
-                     .Build();
-
-                    return host.RunAsync();
+                using var host = Host.CreateDefaultBuilder(args)
+                    .UseWindowsService(options =>
+                    {
+                        options.ServiceName = "SortThing";
+                    })
+                    .ConfigureServices(services =>
+                    {
+                        services.AddLogging();
+                        services.AddScoped<IMetadataReader, MetadataReader>();
+                        services.AddScoped<IJobRunner, JobRunner>();
+                        services.AddSingleton<IJobWatcher, JobWatcher>();
+                        services.AddScoped<IPathTransformer, PathTransformer>();
+                        services.AddScoped<IFileSystem, FileSystem>();
+                        services.AddHostedService<SortBackgroundService>();
+                    })
+                    .ConfigureLogging(builder =>
+                    {
+                        builder.AddProvider(new FileLoggerProvider());
+                    })
+                    .Build();
+                
+                return host.RunAsync();
             });
 
             return await rootCommand.InvokeAsync(args);

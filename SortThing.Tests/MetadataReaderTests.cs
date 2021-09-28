@@ -11,7 +11,6 @@ namespace SortThing.Tests
     [TestClass]
     public class MetadataReaderTests
     {
-        private readonly string _assemblyDir = Path.GetDirectoryName(typeof(MetadataReaderTests).Assembly.Location);
         private MetadataReader _metadataReader;
 
 
@@ -59,11 +58,11 @@ namespace SortThing.Tests
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual("File could not be found.", result.Error);
 
-            result = await _metadataReader.TryGetExifData(_assemblyDir);
+            result = await _metadataReader.TryGetExifData(AppContext.BaseDirectory);
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual("File could not be found.", result.Error);
 
-            result = await _metadataReader.TryGetExifData(Path.Combine(_assemblyDir, "Resources", "PicWithoutExif.jpg"));
+            result = await _metadataReader.TryGetExifData(Path.Combine(AppContext.BaseDirectory, "Resources", "PicWithoutExif.jpg"));
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual("DateTime is missing from metadata.", result.Error);
         }
@@ -71,7 +70,7 @@ namespace SortThing.Tests
         [TestMethod]
         public async Task TryGetExifData_GivenValidPath_Succeeds()
         {
-            var result = await _metadataReader.TryGetExifData(Path.Combine(_assemblyDir, "Resources", "PicWithExif.jpg"));
+            var result = await _metadataReader.TryGetExifData(Path.Combine(AppContext.BaseDirectory, "Resources", "PicWithExif.jpg"));
             Assert.IsTrue(result.IsSuccess);
             Assert.AreEqual(result.Value.DateTaken, new DateTime(2015, 11, 14, 14, 41, 14));
             Assert.AreEqual(result.Value.CameraModel, "Lumia 640 LTE");

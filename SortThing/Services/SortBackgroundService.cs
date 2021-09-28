@@ -14,12 +14,18 @@ namespace SortThing.Services
     {
         private readonly IJobRunner _jobRunner;
         private readonly IJobWatcher _jobWatcher;
-        private readonly ILogger<BackgroundService> _logger;
+        private readonly IHostApplicationLifetime _appLifetime;
+        private readonly ILogger<SortBackgroundService> _logger;
 
-        public SortBackgroundService(IJobRunner jobRunner, IJobWatcher jobWatcher, ILogger<BackgroundService> logger)
+        public SortBackgroundService(
+            IJobRunner jobRunner, 
+            IJobWatcher jobWatcher,
+            IHostApplicationLifetime appLifetime, 
+            ILogger<SortBackgroundService> logger)
         {
             _jobRunner = jobRunner;
             _jobWatcher = jobWatcher;
+            _appLifetime = appLifetime;
             _logger = logger;
         }
 
@@ -31,8 +37,7 @@ namespace SortThing.Services
                 {
                     _logger.LogInformation("Config path not specified.  Looking for config.json in application directory.");
 
-                    var appDir = Path.GetDirectoryName(typeof(Program).Assembly.Location);
-                    var configPath = Path.Combine(appDir, "config.json");
+                    var configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
 
                     if (File.Exists(configPath))
                     {
@@ -41,19 +46,20 @@ namespace SortThing.Services
                     else
                     {
                         _logger.LogWarning("No config file was found.  Exiting.");
+                        _appLifetime.StopApplication();
                         return;
                     }
                 }
-
+                
                 await _jobRunner.RunJobs(Program.ConfigPath, Program.DryRun);
-
+                
                 if (Program.Once)
                 {
+                    _appLifetime.StopApplication();
                     return;
                 }
 
                 await _jobWatcher.WatchJobs(Program.ConfigPath, Program.DryRun);
-                await Task.Delay(-1, stoppingToken);
             }
             catch (Exception ex)
             {
