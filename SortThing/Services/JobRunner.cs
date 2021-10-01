@@ -13,6 +13,8 @@ namespace SortThing.Services
     {
         Task RunJob(SortJob job, bool dryRun);
 
+        Task RunJob(string configPath, string jobName, bool dryRun);
+
         Task RunJobs(string configPath, bool dryRun);
     }
 
@@ -25,8 +27,8 @@ namespace SortThing.Services
             RecurseSubdirectories = true
         };
 
-        private readonly ILogger<JobRunner> _logger;
         private readonly IFileSystem _fileSystem;
+        private readonly ILogger<JobRunner> _logger;
         private readonly IMetadataReader _metaDataReader;
         private readonly IPathTransformer _pathTransformer;
 
@@ -127,7 +129,32 @@ namespace SortThing.Services
             }
         }
 
+        public async Task RunJob(string configPath, string jobName, bool dryRun)
+        {
+            var config = await GetConfig(configPath);
+            var job = config.Jobs?.FirstOrDefault(x => 
+                x.Name?.Equals(jobName, StringComparison.OrdinalIgnoreCase) ?? false);
+
+            if (job is null)
+            {
+                _logger.LogError($"Job name {jobName} not found in config.");
+                return;
+            }
+
+            await RunJob(job, dryRun);
+        }
+
         public async Task RunJobs(string configPath, bool dryRun)
+        {
+            var config = await GetConfig(configPath);
+
+            foreach (var job in config.Jobs)
+            {
+                await RunJob(job, dryRun);
+            }
+        }
+
+        private async Task<SortConfig> GetConfig(string configPath)
         {
             if (string.IsNullOrWhiteSpace(configPath))
             {
@@ -135,12 +162,7 @@ namespace SortThing.Services
             }
 
             var configString = await File.ReadAllTextAsync(configPath);
-            var config = JsonSerializer.Deserialize<SortConfig>(configString);
-
-            foreach (var job in config.Jobs)
-            {
-                await RunJob(job, dryRun);
-            }
+            return JsonSerializer.Deserialize<SortConfig>(configString);
         }
     }
 }

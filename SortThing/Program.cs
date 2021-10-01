@@ -15,8 +15,8 @@ namespace SortThing
 {
     public class Program
     {
-        private static CancellationTokenSource _appExitSource = new();
         public static string ConfigPath { get; private set; }
+        public static string JobName { get; private set; }
         public static bool DryRun { get; private set; }
         public static bool Once { get; private set; }
 
@@ -25,10 +25,10 @@ namespace SortThing
         {
             var rootCommand = new RootCommand("Sort your photos into folders based on metadata.");
 
-            var opt1 = new Option<string>(
+            var configOption = new Option<string>(
                 new[] { "--config-path", "-c" },
                 "The full path to the SortThing configuration file.  See the readme for an example: https://github.com/lucent-sea/SortThing");
-            opt1.AddValidator(option =>
+            configOption.AddValidator(option =>
             {
                 if (File.Exists(option.GetValueOrDefault()?.ToString()))
                 {
@@ -37,23 +37,30 @@ namespace SortThing
 
                 return "Config file could not be found at the given path.";
             });
-            rootCommand.AddOption(opt1);
+            rootCommand.AddOption(configOption);
 
-            var opt2 = new Option<bool>(
+            var jobOption = new Option<string>(
+                new[] { "--job-name", "-j" },
+                () => string.Empty,
+                "If specified, will only run the named job from the config, then exit.  Implies --once.");
+                        rootCommand.AddOption(jobOption);
+
+            var onceOption = new Option<bool>(
                 new[] { "--once", "-o" },
                 () => false,
                 "If true, will run sort jobs immediately, then exit.  If false, will run jobs, then block and monitor for changes in each job's source folder.");
-            rootCommand.AddOption(opt2);
+            rootCommand.AddOption(onceOption);
 
-            var opt3 = new Option<bool>(
+            var dryRunOption = new Option<bool>(
                 new[] { "--dry-run", "-d" },
                 () => false,
                 "If true, no file operations will actually be executed.");
-            rootCommand.AddOption(opt3);
+            rootCommand.AddOption(dryRunOption);
 
-            rootCommand.Handler = CommandHandler.Create((string configPath, bool once, bool dryRun) =>
+            rootCommand.Handler = CommandHandler.Create((string configPath, string jobName, bool once, bool dryRun) =>
             {
                 ConfigPath = configPath;
+                JobName = jobName;
                 Once = once;
                 DryRun = dryRun;
 

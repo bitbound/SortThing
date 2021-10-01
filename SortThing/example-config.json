@@ -1,29 +1,32 @@
 {
   "Jobs": [
     {
+      "Name": "Photos",
       "Operation": "Move",
       "SourceDirectory": "D:\\Sync\\Camera\\",
       "DestinationFile": "D:\\Sorted\\Photos\\{yyyy}\\{MM}\\{dd}\\{camera}\\{HH}{mm} - {filename}.{extension}",
       "IncludeExtensions": [ "png", "jpg", "jpeg" ],
       "ExcludeExtensions": [],
       "OverwriteDestination": false,
-      "CreateNewIfExists":  false
+      "CreateNewIfExists": false
     },
     {
+      "Name":  "Videos",
       "Operation": "Move",
       "SourceDirectory": "D:\\Sync\\Camera\\",
       "DestinationFile": "D:\\Sorted\\Videos\\{yyyy}\\{MM}\\{dd}\\{camera}\\{HH}{mm} - {filename}.{extension}",
-      "IncludeExtensions": [ "mp4" ],
+      "IncludeExtensions": [ "mp4", "avi" ],
       "ExcludeExtensions": [],
       "OverwriteDestination": false,
       "CreateNewIfExists": false
     },
     {
+      "Name": "Others",
       "Operation": "Move",
       "SourceDirectory": "D:\\Sync\\Camera\\",
       "DestinationFile": "D:\\Sorted\\Files\\{yyyy}\\{MM}\\{dd}\\{HH}{mm} - {filename}.{extension}",
       "IncludeExtensions": [ "*" ],
-      "ExcludeExtensions": [ "png", "jpg", "jpeg", "mp4" ],
+      "ExcludeExtensions": [ "png", "jpg", "jpeg", "mp4", "avi" ],
       "OverwriteDestination": false,
       "CreateNewIfExists": true
     }

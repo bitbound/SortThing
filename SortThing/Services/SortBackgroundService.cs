@@ -54,6 +54,13 @@ namespace SortThing.Services
                     }
                 }
                 
+                if (!string.IsNullOrWhiteSpace(Program.JobName))
+                {
+                    _appLifetime.StopApplication();
+                    await _jobRunner.RunJob(configPath, Program.JobName, Program.DryRun);
+                    return;
+                }
+
                 await _jobRunner.RunJobs(configPath, Program.DryRun);
                 
                 if (Program.Once)
