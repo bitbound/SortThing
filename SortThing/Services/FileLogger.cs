@@ -16,16 +16,15 @@ namespace SortThing.Services
 {
     public class FileLogger : ILogger
     {
-        private readonly string _logPath = Path.Combine(Path.GetTempPath(), "SortThing.log");
-        private readonly SemaphoreSlim _writeLock = new(1, 1);
         private readonly string _categoryName;
-
-        protected static ConcurrentStack<string> ScopeStack { get; } = new ConcurrentStack<string>();
-
+        private readonly SemaphoreSlim _writeLock = new(1, 1);
         public FileLogger(string categoryName)
         {
             _categoryName = categoryName;
         }
+
+        protected static ConcurrentStack<string> ScopeStack { get; } = new ConcurrentStack<string>();
+        private string LogPath => Path.Combine(Path.GetTempPath(), $"SortThing_{DateTime.Now:yyyy-MM-dd}.log");
 
         public IDisposable BeginScope<TState>(TState state)
         {
@@ -65,11 +64,22 @@ namespace SortThing.Services
             WriteLog(logLevel, _categoryName, state.ToString(), exception, scopeStack).Wait(3000);
         }
 
+        private async Task CheckLogFileExists()
+        {
+            if (!File.Exists(LogPath))
+            {
+                File.Create(LogPath).Close();
+                if (OperatingSystem.IsLinux())
+                {
+                    await Process.Start("sudo", $"chmod 775 {LogPath}").WaitForExitAsync();
+                }
+            }
+        }
+
         private async Task WriteLog(LogLevel logLevel, string categoryName, string state, Exception exception, string[] scopeStack)
         {
             try
             {
-                // TODO: Pool and sink to disk.
                 await _writeLock.WaitAsync();
 
                 await CheckLogFileExists();
@@ -85,11 +95,15 @@ namespace SortThing.Services
 
                 var message = $"[{logLevel}]\t" +
                     $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}\t" +
-                    $"[{string.Join(" - ", scopeStack)} - {categoryName}]\t" +
+                    (
+                        scopeStack.Any() ? 
+                            $"[{string.Join(" - ", scopeStack)} - {categoryName}]\t" :
+                            $"[{categoryName}]\t"
+                    ) +
                     $"Message: {state}\t" +
                     $"Exception: {exMessage}{Environment.NewLine}";
 
-                File.AppendAllText(_logPath, message);
+                File.AppendAllText(LogPath, message);
 
             }
             catch { }
@@ -98,30 +112,6 @@ namespace SortThing.Services
                 _writeLock.Release();
             }
         }
-
-        private async Task CheckLogFileExists()
-        {
-            if (!File.Exists(_logPath))
-            {
-                File.Create(_logPath).Close();
-                if (OperatingSystem.IsLinux())
-                {
-                    await Process.Start("sudo", $"chmod 775 {_logPath}").WaitForExitAsync();
-                }
-            }
-
-            if (File.Exists(_logPath))
-            {
-                var fi = new FileInfo(_logPath);
-                while (fi.Length > 1000000)
-                {
-                    var content = File.ReadAllLines(_logPath);
-                    await File.WriteAllLinesAsync(_logPath, content.Skip(10));
-                    fi = new FileInfo(_logPath);
-                }
-            }
-        }
-
         private class NoopDisposable : IDisposable
         {
             public void Dispose()
