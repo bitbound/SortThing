@@ -24,7 +24,8 @@ namespace SortThing.Services
         private readonly EnumerationOptions _enumOptions = new EnumerationOptions()
         {
             AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.Hidden | FileAttributes.System,
-            RecurseSubdirectories = true
+            RecurseSubdirectories = true,
+            MatchCasing = MatchCasing.PlatformDefault
         };
 
         private readonly IFileSystem _fileSystem;
@@ -87,12 +88,13 @@ namespace SortThing.Services
                                 !job.OverwriteDestination &&
                                 !job.CreateNewIfExists)
                             {
-                                _logger.LogInformation($"Destination file exists.  Skipping.  Destination file: {destinationFile}");
+                                _logger.LogWarning($"Destination file exists.  Skipping.  Destination file: {destinationFile}");
                                 continue;
                             }
 
-                            if (job.CreateNewIfExists)
+                            if (File.Exists(destinationFile) && job.CreateNewIfExists)
                             {
+                                _logger.LogWarning($"Destination file exists. Creating unique file name.");
                                 destinationFile = _pathTransformer.GetUniqueFilePath(destinationFile);
                             }
 
