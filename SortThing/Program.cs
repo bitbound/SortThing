@@ -71,7 +71,6 @@ namespace SortThing
                     })
                     .ConfigureServices(services =>
                     {
-                        services.AddLogging();
                         services.AddScoped<IMetadataReader, MetadataReader>();
                         services.AddScoped<IJobRunner, JobRunner>();
                         services.AddSingleton<IJobWatcher, JobWatcher>();
@@ -81,6 +80,8 @@ namespace SortThing
                     })
                     .ConfigureLogging(builder =>
                     {
+                        builder.ClearProviders();
+                        builder.AddConsole();
                         builder.AddProvider(new FileLoggerProvider());
                     })
                     .Build();
