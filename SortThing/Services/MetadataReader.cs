@@ -1,4 +1,6 @@
-﻿using ExifLib;
+﻿using MetadataExtractor;
+using MetadataExtractor.Formats.Exif;
+using MetadataExtractor.Formats.QuickTime;
 using SortThing.Abstractions;
 using SortThing.Models;
 using System;
@@ -55,15 +57,12 @@ namespace SortThing.Services
                     return Result.Fail<ExifData>("File could not be found.");
                 }
 
-                using var reader = new ExifReader(filePath);
-
-                if (!reader.GetTagValue<DateTime>(ExifTags.DateTimeOriginal, out var dateTaken) &&
-                    !reader.GetTagValue(ExifTags.DateTimeDigitized, out dateTaken))
+                if (!TryGetDateTime(filePath, out var dateTaken))
                 {
                     return Result.Fail<ExifData>("DateTime is missing from metadata.");
                 }
 
-                reader.GetTagValue<string>(ExifTags.Model, out var camera);
+                TryGetCameraModel(filePath, out var camera);
 
                 return Result.Ok(new ExifData()
                 {
@@ -75,6 +74,58 @@ namespace SortThing.Services
             {
                 return Result.Fail<ExifData>("Error while reading metadata.");
             }
+        }
+
+        private bool TryGetCameraModel(string filePath, out string camera)
+        {
+            camera = string.Empty;
+
+            if (!TryGetExifDirectory<ExifIfd0Directory>(filePath, out var directory))
+            {
+                return false;
+            }
+
+            camera = directory
+                ?.GetString(ExifDirectoryBase.TagModel)
+                ?.Trim();
+
+            return !string.IsNullOrWhiteSpace(camera);
+        }
+
+        private bool TryGetDateTime(string filePath, out DateTime dateTaken)
+        {
+            dateTaken = default;
+
+            if (!TryGetExifDirectory<ExifSubIfdDirectory>(filePath, out var directory))
+            {
+                if (!TryGetExifDirectory<QuickTimeMovieHeaderDirectory>(filePath, out var qtDir))
+                {
+                    return false;
+                }
+
+                return qtDir.TryGetDateTime(QuickTimeMovieHeaderDirectory.TagCreated, out dateTaken);
+            }
+
+            if (directory.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out dateTaken) ||
+                directory.TryGetDateTime(ExifDirectoryBase.TagDateTimeDigitized, out dateTaken) ||
+                directory.TryGetDateTime(ExifDirectoryBase.TagDateTime, out dateTaken))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryGetExifDirectory<T>(string filePath, out T directory)
+                    where T : class
+        {
+            var directories = ImageMetadataReader.ReadMetadata(filePath);
+
+            directory = directories
+                ?.OfType<T>()
+                ?.FirstOrDefault();
+
+            return directory is not null;
         }
     }
 }

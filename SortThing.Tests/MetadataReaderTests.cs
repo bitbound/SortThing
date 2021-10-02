@@ -64,7 +64,7 @@ namespace SortThing.Tests
 
             result = _metadataReader.TryGetExifData(Path.Combine(AppContext.BaseDirectory, "Resources", "PicWithoutExif.jpg"));
             Assert.IsFalse(result.IsSuccess);
-            Assert.AreEqual("Error while reading metadata.", result.Error);
+            Assert.AreEqual("DateTime is missing from metadata.", result.Error);
         }
 
         [TestMethod]
