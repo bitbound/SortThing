@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
+using SortThing.Enums;
 using SortThing.Models;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -11,17 +13,17 @@ namespace SortThing.Services
 {
     public interface IJobRunner
     {
-        Task RunJob(SortJob job, bool dryRun);
+        Task<JobReport> RunJob(SortJob job, bool dryRun);
 
-        Task RunJob(string configPath, string jobName, bool dryRun);
+        Task<JobReport> RunJob(string configPath, string jobName, bool dryRun);
 
-        Task RunJobs(string configPath, bool dryRun);
+        Task<List<JobReport>> RunJobs(string configPath, bool dryRun);
     }
 
     public class JobRunner : IJobRunner
     {
         private static readonly SemaphoreSlim _runLock = new(1, 1);
-        private readonly EnumerationOptions _enumOptions = new EnumerationOptions()
+        private readonly EnumerationOptions _enumOptions = new()
         {
             AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.Hidden | FileAttributes.System,
             RecurseSubdirectories = true,
@@ -32,92 +34,45 @@ namespace SortThing.Services
         private readonly ILogger<JobRunner> _logger;
         private readonly IMetadataReader _metaDataReader;
         private readonly IPathTransformer _pathTransformer;
+        private readonly IConfigService _configService;
 
-
-        public JobRunner(IFileSystem fileSystem, IMetadataReader metaDataReader, IPathTransformer pathTransformer, ILogger<JobRunner> logger)
+        public JobRunner(IFileSystem fileSystem,
+            IMetadataReader metaDataReader, 
+            IPathTransformer pathTransformer,
+            IConfigService configService,
+            ILogger<JobRunner> logger)
         {
             // TODO: Implement and use IFileSystem.
             _fileSystem = fileSystem;
             _metaDataReader = metaDataReader;
             _pathTransformer = pathTransformer;
+            _configService = configService;
             _logger = logger;
         }
 
-        public async Task RunJob(SortJob job, bool dryRun)
+        public async Task<JobReport> RunJob(SortJob job, bool dryRun)
         {
+            var jobReport = new JobReport()
+            {
+                JobName = job.Name,
+                Operation = job.Operation,
+                DryRun = dryRun
+            };
+
             try
             {
                 await _runLock.WaitAsync();
 
-                _logger.LogInformation($"Starting job run: {JsonSerializer.Serialize(job)}");
+                _logger.LogInformation("Starting job run: {job}", JsonSerializer.Serialize(job));
 
                 foreach (var extension in job.IncludeExtensions)
                 {
-                    var files = Directory.GetFiles(job.SourceDirectory, $"*.{extension.Replace(".","")}", _enumOptions)
+                    var files = Directory.GetFiles(job.SourceDirectory, $"*.{extension.Replace(".", "")}", _enumOptions)
                         .Where(file => !job.ExcludeExtensions.Any(ext => ext.Equals(Path.GetExtension(file)[1..], StringComparison.OrdinalIgnoreCase)));
-                    
+
                     foreach (var file in files)
                     {
-                        try
-                        {
-                            var result = _metaDataReader.TryGetExifData(file);
-
-                            string destinationFile;
-
-                            if (result.IsSuccess)
-                            {
-                                destinationFile = _pathTransformer.TransformPath(
-                                    file,
-                                    job.DestinationFile,
-                                    result.Value.DateTaken,
-                                    result.Value.CameraModel);
-                            }
-                            else
-                            {
-                                var fileCreated = File.GetCreationTime(file);
-                                destinationFile = _pathTransformer.TransformPath(file, job.DestinationFile, fileCreated);
-                            }
-
-                            if (dryRun)
-                            {
-                                _logger.LogInformation($"Dry run. Skipping file operation.  Source: {file}.  Destination: {destinationFile}.");
-                                continue;
-                            }
-
-                            if (File.Exists(destinationFile) &&
-                                !job.OverwriteDestination &&
-                                !job.CreateNewIfExists)
-                            {
-                                _logger.LogWarning($"Destination file exists.  Skipping.  Destination file: {destinationFile}");
-                                continue;
-                            }
-
-                            if (File.Exists(destinationFile) && job.CreateNewIfExists)
-                            {
-                                _logger.LogWarning($"Destination file exists. Creating unique file name.");
-                                destinationFile = _pathTransformer.GetUniqueFilePath(destinationFile);
-                            }
-
-                            _logger.LogInformation($"Starting file operation: {job.Operation}.  Source: {file}.  Destination: {destinationFile}.");
-
-                            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile));
-
-                            switch (job.Operation)
-                            {
-                                case Enums.SortOperation.Move:
-                                    File.Move(file, destinationFile, true);
-                                    break;
-                                case Enums.SortOperation.Copy:
-                                    File.Copy(file, destinationFile, true);
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, $"Error while running job.");
-                        }
+                        var result = await PerformFileOperation(job, dryRun, file);
                     }
                 }
             }
@@ -129,42 +84,151 @@ namespace SortThing.Services
             {
                 _runLock.Release();
             }
+
+            return jobReport;
         }
 
-        public async Task RunJob(string configPath, string jobName, bool dryRun)
+        public async Task<JobReport> RunJob(string configPath, string jobName, bool dryRun)
         {
-            var config = await GetConfig(configPath);
-            var job = config.Jobs?.FirstOrDefault(x => 
+            var config = await _configService.GetConfig(configPath);
+            var job = config.Jobs?.FirstOrDefault(x =>
                 x.Name?.Equals(jobName, StringComparison.OrdinalIgnoreCase) ?? false);
 
             if (job is null)
             {
-                _logger.LogError($"Job name {jobName} not found in config.");
-                return;
+                _logger.LogError("Job name {jobName} not found in config.", jobName);
+                return new JobReport()
+                {
+                    DryRun = dryRun,
+                    JobName = jobName,
+                    Operation = SortOperation.Unknown
+                };
             }
 
-            await RunJob(job, dryRun);
+            return await RunJob(job, dryRun);
         }
 
-        public async Task RunJobs(string configPath, bool dryRun)
+        public async Task<List<JobReport>> RunJobs(string configPath, bool dryRun)
         {
-            var config = await GetConfig(configPath);
+            var config = await _configService.GetConfig(configPath);
+            var reports = new List<JobReport>();
 
             foreach (var job in config.Jobs)
             {
-                await RunJob(job, dryRun);
+                var report = await RunJob(job, dryRun);
+                reports.Add(report);
             }
+
+            return reports;
         }
 
-        private async Task<SortConfig> GetConfig(string configPath)
+        private Task<OperationResult> PerformFileOperation(SortJob job, bool dryRun, string file)
         {
-            if (string.IsNullOrWhiteSpace(configPath))
+            OperationResult operationResult;
+            var exifFound = false;
+            var destinationFile = string.Empty;
+
+            try
             {
-                throw new ArgumentNullException(nameof(configPath));
+                var result = _metaDataReader.TryGetExifData(file);
+
+                if (result.IsSuccess && result.Value is not null)
+                {
+                    exifFound = true;
+                    destinationFile = _pathTransformer.TransformPath(
+                        file,
+                        job.DestinationFile,
+                        result.Value.DateTaken,
+                        result.Value.CameraModel);
+                }
+                else
+                {
+                    exifFound = false;
+                    var noExifPath = Path.Combine(job.NoExifDirectory, Path.GetFileName(file));
+                    destinationFile = _pathTransformer.GetUniqueFilePath(noExifPath);
+                }
+
+                if (dryRun)
+                {
+                    _logger.LogInformation("Dry run. Skipping file operation.  Source: {file}.  Destination: {destinationFile}.",
+                        file,
+                        destinationFile);
+
+                    operationResult = new OperationResult()
+                    {
+                        FoundExifData = exifFound,
+                        PostOperationPath = file,
+                        WasSkipped = true,
+                        PreOperationPath = destinationFile,
+                    };
+
+                    return Task.FromResult(operationResult);
+                }
+
+                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.DoNothing)
+                {
+                    _logger.LogWarning("Destination file exists.  Skipping.  Destination file: {destinationFile}", destinationFile);
+                    operationResult = new OperationResult()
+                    {
+                        FoundExifData = exifFound,
+                        WasSkipped = true,
+                        PostOperationPath = destinationFile,
+                        PreOperationPath = file
+                    };
+                    return Task.FromResult(operationResult);
+                }
+
+                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.CreateUnique)
+                {
+                    _logger.LogWarning("Destination file exists. Creating unique file name.");
+                    destinationFile = _pathTransformer.GetUniqueFilePath(destinationFile);
+                }
+
+                _logger.LogInformation("Starting file operation: {jobOperation}.  Source: {file}.  Destination: {destinationFile}.",
+                    job.Operation,
+                    file,
+                    destinationFile);
+
+                var dirName = Path.GetDirectoryName(destinationFile);
+                if (dirName is null)
+                {
+                    throw new DirectoryNotFoundException($"Unable to get directory name for file {destinationFile}.");
+                }
+
+                Directory.CreateDirectory(dirName);
+
+                switch (job.Operation)
+                {
+                    case SortOperation.Move:
+                        File.Move(file, destinationFile, true);
+                        break;
+                    case SortOperation.Copy:
+                        File.Copy(file, destinationFile, true);
+                        break;
+                    default:
+                        break;
+                }
+
+                operationResult = new OperationResult()
+                {
+                    FoundExifData = exifFound,
+                    PostOperationPath = destinationFile,
+                    PreOperationPath = file
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error while running job.");
+
+                operationResult = new OperationResult()
+                {
+                    FoundExifData = exifFound,
+                    PostOperationPath = destinationFile,
+                    PreOperationPath = file
+                };
             }
 
-            var configString = await File.ReadAllTextAsync(configPath);
-            return JsonSerializer.Deserialize<SortConfig>(configString);
+            return Task.FromResult(operationResult);
         }
     }
 }

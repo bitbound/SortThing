@@ -76,6 +76,16 @@ namespace SortThing
                         services.AddSingleton<IJobWatcher, JobWatcher>();
                         services.AddScoped<IPathTransformer, PathTransformer>();
                         services.AddScoped<IFileSystem, FileSystem>();
+                        services.AddScoped<IReportWriter, ReportWriter>();
+                        services.AddScoped<IConfigService, ConfigService>();
+                        services.AddSingleton<IChrono, Chrono>();
+                        services.AddSingleton<IGlobalState>(new GlobalState()
+                        {
+                            ConfigPath = string.Empty,
+                            DryRun = false,
+                            JobName = string.Empty,
+                            Once = true
+                        });
                         services.AddHostedService<SortBackgroundService>();
                     })
                     .ConfigureLogging(builder =>

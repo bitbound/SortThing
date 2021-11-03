@@ -2,6 +2,7 @@
 {
     public enum SortOperation
     {
+        Unknown,
         Move,
         Copy
     }
