@@ -18,7 +18,7 @@ namespace SortThing.Services
     {
         private readonly IChrono _chrono;
 
-        private string LogPath => Path.Combine(Path.GetTempPath(), $"Medior_Report_{_chrono.Now:yyyy-MM-dd HH.mm.ss.fff}.log");
+        private string LogPath => Path.Combine(Path.GetTempPath(), $"SortThing_Report_{_chrono.Now:yyyy-MM-dd HH.mm.ss.fff}.log");
 
         public ReportWriter(IChrono chrono)
         {

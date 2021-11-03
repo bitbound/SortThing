@@ -31,11 +31,11 @@ namespace SortThing.Services
             {
                 if (OperatingSystem.IsWindows())
                 {
-                    return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Medior", "Config.json");
+                    return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SortThing", "Config.json");
                 }
                 else
                 {
-                    return Path.Combine(Path.GetTempPath(), "Medior", "Config.json");
+                    return Path.Combine(Path.GetTempPath(), "SortThing", "Config.json");
                 }
             }
         }
