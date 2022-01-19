@@ -78,7 +78,7 @@ namespace SortThing
                         services.AddScoped<IFileSystem, FileSystem>();
                         services.AddScoped<IReportWriter, ReportWriter>();
                         services.AddScoped<IConfigService, ConfigService>();
-                        services.AddSingleton<IChrono, Chrono>();
+                        services.AddSingleton<ISystemTime, SystemTime>();
                         services.AddSingleton<IGlobalState>(new GlobalState()
                         {
                             ConfigPath = string.Empty,

@@ -16,13 +16,13 @@ namespace SortThing.Services
 
     public class ReportWriter : IReportWriter
     {
-        private readonly IChrono _chrono;
+        private readonly ISystemTime _systemTime;
 
-        private string LogPath => Path.Combine(Path.GetTempPath(), $"SortThing_Report_{_chrono.Now:yyyy-MM-dd HH.mm.ss.fff}.log");
+        private string LogPath => Path.Combine(Path.GetTempPath(), $"SortThing_Report_{_systemTime.Now:yyyy-MM-dd HH.mm.ss.fff}.log");
 
-        public ReportWriter(IChrono chrono)
+        public ReportWriter(ISystemTime systemTime)
         {
-            _chrono = chrono;
+            _systemTime = systemTime;
         }
 
         public async Task<string> WriteReports(IEnumerable<JobReport> reports)

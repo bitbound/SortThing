@@ -165,7 +165,7 @@ namespace SortThing.Services
                     return Task.FromResult(operationResult);
                 }
 
-                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.DoNothing)
+                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.Skip)
                 {
                     _logger.LogWarning("Destination file exists.  Skipping.  Destination file: {destinationFile}", destinationFile);
                     operationResult = new OperationResult()
@@ -178,7 +178,7 @@ namespace SortThing.Services
                     return Task.FromResult(operationResult);
                 }
 
-                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.CreateUnique)
+                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.New)
                 {
                     _logger.LogWarning("Destination file exists. Creating unique file name.");
                     destinationFile = _pathTransformer.GetUniqueFilePath(destinationFile);

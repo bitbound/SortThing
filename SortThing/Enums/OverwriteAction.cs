@@ -8,8 +8,8 @@ namespace SortThing.Enums
 {
     public enum OverwriteAction
     {
-        DoNothing,
-        CreateUnique,
+        Skip,
+        New,
         Overwrite
     }
 }

@@ -39,19 +39,6 @@ namespace SortThing.Services
                 }
             }
         }
-        public async Task<SortConfig> GetSortConfig()
-        {
-            try
-            {
-                return await GetConfig(DefaultConfigPath);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting sort config.");
-            }
-            return new SortConfig();
-        }
-
         public async Task<SortConfig> GetConfig(string configPath)
         {
 
@@ -67,6 +54,19 @@ namespace SortThing.Services
 
             var configString = await File.ReadAllTextAsync(configPath);
             return JsonSerializer.Deserialize<SortConfig>(configString) ?? new();
+        }
+
+        public async Task<SortConfig> GetSortConfig()
+        {
+            try
+            {
+                return await GetConfig(DefaultConfigPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting sort config.");
+            }
+            return new SortConfig();
         }
     }
 }
