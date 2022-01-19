@@ -28,7 +28,7 @@ namespace SortThing.Services
             _sinkTimer.Elapsed += SinkTimer_Elapsed;
         }
 
-        private string LogPath => Path.Combine(Path.GetTempPath(), $"SortThing_{DateTime.Now:yyyy-MM-dd}.log");
+        private string LogPath => Path.Combine(Path.GetTempPath(), "SortThing", $"LogFile_{DateTime.Now:yyyy-MM-dd}.log");
 
         public IDisposable BeginScope<TState>(TState state)
         {
@@ -78,6 +78,7 @@ namespace SortThing.Services
 
         private async Task CheckLogFileExists()
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(LogPath));
             if (!File.Exists(LogPath))
             {
                 File.Create(LogPath).Close();

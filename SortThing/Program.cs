@@ -15,12 +15,6 @@ namespace SortThing
 {
     public class Program
     {
-        public static string ConfigPath { get; private set; }
-        public static string JobName { get; private set; }
-        public static bool DryRun { get; private set; }
-        public static bool Once { get; private set; }
-
-
         public static async Task<int> Main(string[] args)
         {
             var rootCommand = new RootCommand("Sort your photos into folders based on metadata.");
@@ -57,18 +51,14 @@ namespace SortThing
                 "If true, no file operations will actually be executed.");
             rootCommand.AddOption(dryRunOption);
 
-            rootCommand.Handler = CommandHandler.Create((string configPath, string jobName, bool once, bool dryRun) =>
+            rootCommand.Handler = CommandHandler.Create(async (string configPath, string jobName, bool once, bool dryRun) =>
             {
-                ConfigPath = configPath;
-                JobName = jobName;
-                Once = once;
-                DryRun = dryRun;
-
                 using var host = Host.CreateDefaultBuilder(args)
                     .UseWindowsService(options =>
                     {
                         options.ServiceName = "SortThing";
                     })
+                    .UseConsoleLifetime()
                     .ConfigureServices(services =>
                     {
                         services.AddScoped<IMetadataReader, MetadataReader>();
@@ -81,10 +71,10 @@ namespace SortThing
                         services.AddSingleton<ISystemTime, SystemTime>();
                         services.AddSingleton<IGlobalState>(new GlobalState()
                         {
-                            ConfigPath = string.Empty,
-                            DryRun = false,
-                            JobName = string.Empty,
-                            Once = true
+                            ConfigPath = configPath,
+                            DryRun = dryRun,
+                            JobName = jobName,
+                            Once = once
                         });
                         services.AddHostedService<SortBackgroundService>();
                     })
@@ -96,7 +86,7 @@ namespace SortThing
                     })
                     .Build();
                 
-                return host.RunAsync();
+                await host.RunAsync();
             });
 
             return await rootCommand.InvokeAsync(args);

@@ -13,11 +13,11 @@ namespace SortThing.Services
 {
     public interface IJobRunner
     {
-        Task<JobReport> RunJob(SortJob job, bool dryRun);
+        Task<JobReport> RunJob(SortJob job, bool dryRun, CancellationToken cancelToken);
 
-        Task<JobReport> RunJob(string configPath, string jobName, bool dryRun);
+        Task<JobReport> RunJob(string configPath, string jobName, bool dryRun, CancellationToken cancelToken);
 
-        Task<List<JobReport>> RunJobs(string configPath, bool dryRun);
+        Task<List<JobReport>> RunJobs(string configPath, bool dryRun, CancellationToken cancelToken);
     }
 
     public class JobRunner : IJobRunner
@@ -42,7 +42,6 @@ namespace SortThing.Services
             IConfigService configService,
             ILogger<JobRunner> logger)
         {
-            // TODO: Implement and use IFileSystem.
             _fileSystem = fileSystem;
             _metaDataReader = metaDataReader;
             _pathTransformer = pathTransformer;
@@ -50,7 +49,7 @@ namespace SortThing.Services
             _logger = logger;
         }
 
-        public async Task<JobReport> RunJob(SortJob job, bool dryRun)
+        public async Task<JobReport> RunJob(SortJob job, bool dryRun, CancellationToken cancelToken)
         {
             var jobReport = new JobReport()
             {
@@ -65,15 +64,40 @@ namespace SortThing.Services
 
                 _logger.LogInformation("Starting job run: {job}", JsonSerializer.Serialize(job));
 
-                foreach (var extension in job.IncludeExtensions)
-                {
-                    var files = Directory.GetFiles(job.SourceDirectory, $"*.{extension.Replace(".", "")}", _enumOptions)
-                        .Where(file => !job.ExcludeExtensions.Any(ext => ext.Equals(Path.GetExtension(file)[1..], StringComparison.OrdinalIgnoreCase)));
+                var fileList = new List<string>();
 
-                    foreach (var file in files)
+                for (var extIndex = 0; extIndex < job.IncludeExtensions.Length; extIndex++)
+                {
+                    if (cancelToken.IsCancellationRequested)
                     {
-                        var result = await PerformFileOperation(job, dryRun, file);
+                        _logger.LogInformation("Job run cancelled.");
+                        break;
                     }
+
+                    var extension = job.IncludeExtensions[extIndex];
+
+                    var files = _fileSystem.GetFiles(job.SourceDirectory, $"*.{extension.Replace(".", "")}", _enumOptions)
+                        .Where(file => !job.ExcludeExtensions.Any(ext => ext.Equals(Path.GetExtension(file)[1..], StringComparison.OrdinalIgnoreCase)))
+                        .ToArray();
+
+                    fileList.AddRange(files);
+                }
+
+                for (var fileIndex = 0; fileIndex < fileList.Count; fileIndex++)
+                {
+                    if (cancelToken.IsCancellationRequested)
+                    {
+                        _logger.LogInformation("Job run cancelled.");
+                        break;
+                    }
+
+                    var file = fileList[fileIndex];
+
+                    var progress = (double)fileIndex / fileList.Count * 100;
+                    _logger.LogInformation("Processing file {index} out of {total}.", fileIndex + 1, fileList.Count);
+
+                    var result = await PerformFileOperation(job, dryRun, file);
+                    jobReport.Results.Add(result);
                 }
             }
             catch (Exception ex)
@@ -88,7 +112,7 @@ namespace SortThing.Services
             return jobReport;
         }
 
-        public async Task<JobReport> RunJob(string configPath, string jobName, bool dryRun)
+        public async Task<JobReport> RunJob(string configPath, string jobName, bool dryRun, CancellationToken cancelToken)
         {
             var config = await _configService.GetConfig(configPath);
             var job = config.Jobs?.FirstOrDefault(x =>
@@ -105,17 +129,17 @@ namespace SortThing.Services
                 };
             }
 
-            return await RunJob(job, dryRun);
+            return await RunJob(job, dryRun, cancelToken);
         }
 
-        public async Task<List<JobReport>> RunJobs(string configPath, bool dryRun)
+        public async Task<List<JobReport>> RunJobs(string configPath, bool dryRun, CancellationToken cancelToken)
         {
             var config = await _configService.GetConfig(configPath);
             var reports = new List<JobReport>();
 
             foreach (var job in config.Jobs)
             {
-                var report = await RunJob(job, dryRun);
+                var report = await RunJob(job, dryRun, cancelToken);
                 reports.Add(report);
             }
 
@@ -157,15 +181,15 @@ namespace SortThing.Services
                     operationResult = new OperationResult()
                     {
                         FoundExifData = exifFound,
-                        PostOperationPath = file,
+                        PostOperationPath = destinationFile,
                         WasSkipped = true,
-                        PreOperationPath = destinationFile,
+                        PreOperationPath = file,
                     };
 
                     return Task.FromResult(operationResult);
                 }
 
-                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.Skip)
+                if (_fileSystem.FileExists(destinationFile) && job.OverwriteAction == OverwriteAction.Skip)
                 {
                     _logger.LogWarning("Destination file exists.  Skipping.  Destination file: {destinationFile}", destinationFile);
                     operationResult = new OperationResult()
@@ -178,7 +202,7 @@ namespace SortThing.Services
                     return Task.FromResult(operationResult);
                 }
 
-                if (File.Exists(destinationFile) && job.OverwriteAction == OverwriteAction.New)
+                if (_fileSystem.FileExists(destinationFile) && job.OverwriteAction == OverwriteAction.New)
                 {
                     _logger.LogWarning("Destination file exists. Creating unique file name.");
                     destinationFile = _pathTransformer.GetUniqueFilePath(destinationFile);
@@ -200,10 +224,10 @@ namespace SortThing.Services
                 switch (job.Operation)
                 {
                     case SortOperation.Move:
-                        File.Move(file, destinationFile, true);
+                        _fileSystem.MoveFile(file, destinationFile, true);
                         break;
                     case SortOperation.Copy:
-                        File.Copy(file, destinationFile, true);
+                        _fileSystem.CopyFile(file, destinationFile, true);
                         break;
                     default:
                         break;

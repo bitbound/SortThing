@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SortThing.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,17 +17,29 @@ namespace SortThing.Services
         private readonly IJobRunner _jobRunner;
         private readonly IJobWatcher _jobWatcher;
         private readonly IHostApplicationLifetime _appLifetime;
+        private readonly IFileSystem _fileSystem;
+        private readonly IGlobalState _globalState;
+        private readonly IConfigService _configService;
+        private readonly IReportWriter _reportWriter;
         private readonly ILogger<SortBackgroundService> _logger;
 
         public SortBackgroundService(
             IJobRunner jobRunner, 
             IJobWatcher jobWatcher,
             IHostApplicationLifetime appLifetime, 
+            IFileSystem fileSystem,
+            IGlobalState globalState,
+            IConfigService configService,
+            IReportWriter reportWriter,
             ILogger<SortBackgroundService> logger)
         {
             _jobRunner = jobRunner;
             _jobWatcher = jobWatcher;
             _appLifetime = appLifetime;
+            _fileSystem = fileSystem;
+            _globalState = globalState;
+            _configService = configService;
+            _reportWriter = reportWriter;
             _logger = logger;
         }
 
@@ -33,43 +47,49 @@ namespace SortThing.Services
         {
             try
             {
-                var configPath = Program.ConfigPath;
+                var configPath = _globalState.ConfigPath;
+                var cts = new CancellationTokenSource();
+                var cancelToken = cts.Token;
 
                 if (string.IsNullOrWhiteSpace(configPath))
                 {
-                    _logger.LogInformation("Config path not specified.  Looking for config.json in application directory.");
+                    _logger.LogInformation("Config path not specified.  Looking for config file in application directory.");
 
-                    var exeDir = Path.GetDirectoryName(Environment.CommandLine.Split(" ").First());
-                    configPath = Path.Combine(exeDir, "config.json");
-
-                    if (File.Exists(configPath))
+                    var result = await _configService.TryFindConfig();
+                    if (!result.IsSuccess)
                     {
-                        _logger.LogInformation($"Found config file: {configPath}.");
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"No config file was found at {configPath}.  Exiting.");
                         _appLifetime.StopApplication();
                         return;
                     }
-                }
-                
-                if (!string.IsNullOrWhiteSpace(Program.JobName))
-                {
-                    _appLifetime.StopApplication();
-                    await _jobRunner.RunJob(configPath, Program.JobName, Program.DryRun);
-                    return;
+
+                    configPath = result.Value;
                 }
 
-                await _jobRunner.RunJobs(configPath, Program.DryRun);
-                
-                if (Program.Once)
+                if (!_fileSystem.FileExists(configPath))
                 {
+                    _logger.LogInformation("Config file not found at {configPath}.", configPath);
                     _appLifetime.StopApplication();
                     return;
                 }
 
-                await _jobWatcher.WatchJobs(configPath, Program.DryRun);
+                if (!string.IsNullOrWhiteSpace(_globalState.JobName))
+                {
+                    _appLifetime.StopApplication();
+                    var report = await _jobRunner.RunJob(configPath, _globalState.JobName, _globalState.DryRun, stoppingToken);
+                    await _reportWriter.WriteReport(report);
+                    return;
+                }
+
+                var reports = await _jobRunner.RunJobs(configPath, _globalState.DryRun, stoppingToken);
+                await _reportWriter.WriteReports(reports);
+
+                if (_globalState.Once)
+                {
+                    _appLifetime.StopApplication();
+                    return;
+                }
+
+                await _jobWatcher.WatchJobs(configPath, _globalState.DryRun, stoppingToken);
             }
             catch (Exception ex)
             {

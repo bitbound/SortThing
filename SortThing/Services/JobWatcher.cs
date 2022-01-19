@@ -15,7 +15,7 @@ namespace SortThing.Services
     public interface IJobWatcher
     {
         Task CancelWatchers();
-        Task WatchJobs(string configPath, bool dryRun);
+        Task WatchJobs(string configPath, bool dryRun, CancellationToken cancelToken);
     }
 
     public class JobWatcher : IJobWatcher
@@ -55,7 +55,7 @@ namespace SortThing.Services
             return Task.CompletedTask;
         }
 
-        public async Task WatchJobs(string configPath, bool dryRun)
+        public async Task WatchJobs(string configPath, bool dryRun, CancellationToken cancelToken)
         {
             try
             {
@@ -89,7 +89,7 @@ namespace SortThing.Services
 
                     watcher.Created += (sender, ev) =>
                     {
-                        _ = RunJob(sender, job, dryRun);
+                        _ = RunJob(sender, job, dryRun, cancelToken);
                     };
 
                     watcher.EnableRaisingEvents = true;
@@ -101,7 +101,7 @@ namespace SortThing.Services
             }
         }
 
-        private async Task RunJob(object sender, SortJob job, bool dryRun)
+        private async Task RunJob(object sender, SortJob job, bool dryRun, CancellationToken cancelToken)
         {
             var jobRunLock = _jobRunLocks.GetOrAdd(sender, key =>
             {
@@ -117,7 +117,7 @@ namespace SortThing.Services
             {
                 try
                 {
-                    var report = await _jobRunner.RunJob(job, dryRun);
+                    var report = await _jobRunner.RunJob(job, dryRun, cancelToken);
                     await _reportWriter.WriteReport(report);
                 }
                 finally

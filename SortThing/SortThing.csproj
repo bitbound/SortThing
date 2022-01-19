@@ -4,7 +4,13 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <Platforms>AnyCPU;x86;x64</Platforms>
+    <ApplicationIcon>Assets\SortIcon.ico</ApplicationIcon>
+    <PackageIcon>SortIcon.png</PackageIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\SortIcon.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\.editorconfig" Link=".editorconfig" />
@@ -19,6 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Assets\SortIcon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
     <None Update="example-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
