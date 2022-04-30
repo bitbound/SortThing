@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using SortThing.Abstractions;
+using SortThing.Enums;
 using SortThing.Models;
 using System;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ namespace SortThing.Services
         Task<SortConfig> GetConfig(string configPath);
         Task<SortConfig> GetSortConfig();
         Task<Result<string>> TryFindConfig();
+        Task GenerateSample();
     }
 
     public class ConfigService : IConfigService
@@ -43,6 +45,62 @@ namespace SortThing.Services
                 }
             }
         }
+
+        public async Task GenerateSample()
+        {
+            var config = new SortConfig()
+            {
+                Jobs = new[]
+                {
+                    new SortJob()
+                    {
+                        Name = "Photos",
+                        Operation = SortOperation.Move,
+                        SourceDirectory = "D:\\Sync\\Camera\\",
+                        DestinationFile = "D:\\Sorted\\Photos\\{yyyy}\\{MM}\\{dd}\\{camera}\\{HH}{mm} - {filename}.{extension}",
+                        NoExifDirectory = "D:\\Sorted\\NoExif\\Photos",
+                        IncludeExtensions = new[] { "png", "jpg", "jpeg" },
+                        ExcludeExtensions = Array.Empty<string>(),
+                        OverwriteAction =  OverwriteAction.Overwrite
+                    },
+
+                    new SortJob()
+                    {
+                        Name = "Videos",
+                        Operation = SortOperation.Move,
+                        SourceDirectory = "D:\\Sync\\Camera\\",
+                        DestinationFile = "D:\\Sorted\\Videos\\{yyyy}\\{MM}\\{dd}\\{camera}\\{HH}{mm} - {filename}.{extension}",
+                        NoExifDirectory = "D:\\Sorted\\NoExif\\Videos",
+                        IncludeExtensions = new[] { "mp4", "avi", "m4v", "mov" },
+                        ExcludeExtensions = Array.Empty<string>(),
+                        OverwriteAction = OverwriteAction.New
+                    },
+
+                    new SortJob()
+                    {
+                        Name = "Others",
+                        Operation = SortOperation.Move,
+                        SourceDirectory = "D:\\Sync\\Camera\\",
+                        DestinationFile = "D:\\Sorted\\Files\\{yyyy}\\{MM}\\{dd}\\{HH}{mm} - {filename}.{extension}",
+                        IncludeExtensions = new[] { "*" },
+                        ExcludeExtensions = new[] { "png", "jpg", "jpeg", "mp4", "avi", "m4v", "mov" },
+                        OverwriteAction = OverwriteAction.Skip
+                    }
+                }
+            };
+
+            var serialized = JsonSerializer.Serialize(config, new JsonSerializerOptions() { WriteIndented = true });
+
+            try
+            {
+                await _fileSystem.WriteAllTextAsync("ExampleConfig.json", serialized);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to write example config to disk.");
+            }
+        }
+
         public async Task<SortConfig> GetConfig(string configPath)
         {
 

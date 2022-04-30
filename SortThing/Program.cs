@@ -21,7 +21,8 @@ namespace SortThing
 
             var configOption = new Option<string>(
                 new[] { "--config-path", "-c" },
-                "The full path to the SortThing configuration file.  See the readme for an example: https://github.com/lucent-sea/SortThing");
+                "The full path to the SortThing configuration file.  Use -g to generate a sample config file in the current directory.");
+
             configOption.AddValidator(option =>
             {
                 if (!File.Exists(option.GetValueOrDefault()?.ToString()))
@@ -31,11 +32,17 @@ namespace SortThing
             });
             rootCommand.AddOption(configOption);
 
+            var generateOption = new Option<bool>(
+                new[] { "--generate-config", "-g" },
+                () => false,
+                "Generates a sample config file in the current directory.");
+            rootCommand.AddOption(generateOption);
+
             var jobOption = new Option<string>(
                 new[] { "--job-name", "-j" },
                 () => string.Empty,
                 "If specified, will only run the named job from the config, then exit.");
-                        rootCommand.AddOption(jobOption);
+            rootCommand.AddOption(jobOption);
 
             var watchOption = new Option<bool>(
                 new[] { "--watch", "-w" },
@@ -49,7 +56,7 @@ namespace SortThing
                 "If true, no file operations will actually be executed.");
             rootCommand.AddOption(dryRunOption);
 
-            rootCommand.SetHandler(async (string configPath, string jobName, bool watch, bool dryRun) =>
+            rootCommand.SetHandler(async (string configPath, string jobName, bool watch, bool dryRun, bool generateSample) =>
             {
                 using var host = Host.CreateDefaultBuilder(args)
                     .UseWindowsService(options =>
@@ -72,7 +79,8 @@ namespace SortThing
                             ConfigPath = configPath,
                             DryRun = dryRun,
                             JobName = jobName,
-                            Watch = watch
+                            Watch = watch,
+                            GenerateSample = generateSample
                         });
                         services.AddHostedService<SortBackgroundService>();
                     })
@@ -85,7 +93,7 @@ namespace SortThing
                     .Build();
                 
                 await host.RunAsync();
-            }, configOption, jobOption, watchOption, dryRunOption);
+            }, configOption, jobOption, watchOption, dryRunOption, generateOption);
 
             return await rootCommand.InvokeAsync(args);
         }

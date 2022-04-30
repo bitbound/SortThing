@@ -51,6 +51,13 @@ namespace SortThing.Services
                 var cts = new CancellationTokenSource();
                 var cancelToken = cts.Token;
 
+                if (_globalState.GenerateSample)
+                {
+                    await _configService.GenerateSample();
+                    _appLifetime.StopApplication();
+                    return;
+                }
+
                 if (string.IsNullOrWhiteSpace(configPath))
                 {
                     _logger.LogInformation("Config path not specified.  Looking for config file in application directory.");

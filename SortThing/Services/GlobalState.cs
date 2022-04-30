@@ -10,6 +10,7 @@ namespace SortThing.Services
     {
         string ConfigPath { get; init; }
         bool DryRun { get; init; }
+        bool GenerateSample { get; init; }
         string JobName { get; init; }
         bool Watch { get; init; }
     }
@@ -17,8 +18,9 @@ namespace SortThing.Services
     public class GlobalState : IGlobalState
     {
         public string ConfigPath { get; init; } = string.Empty;
-        public string JobName { get; init; } = string.Empty;
         public bool DryRun { get; init; }
+        public bool GenerateSample { get; init; }
+        public string JobName { get; init; } = string.Empty;
         public bool Watch { get; init; }
     }
 }
