@@ -60,7 +60,7 @@ namespace SortThing.Services
 
             try
             {
-                await _runLock.WaitAsync();
+                await _runLock.WaitAsync(cancelToken);
 
                 _logger.LogInformation("Starting job run: {job}", JsonSerializer.Serialize(job));
 

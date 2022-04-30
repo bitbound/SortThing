@@ -21,7 +21,11 @@ namespace SortThing.Utilities
                 timer.Dispose();
             }
 
-            timer = new Timer(wait.TotalMilliseconds);
+            timer = new Timer(wait.TotalMilliseconds)
+            { 
+                AutoReset = false
+            };
+
             timer.Elapsed += (s, e) => action();
             _timers.TryAdd(key, timer);
             timer.Start();

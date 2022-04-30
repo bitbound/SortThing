@@ -83,11 +83,13 @@ namespace SortThing.Services
                 var reports = await _jobRunner.RunJobs(configPath, _globalState.DryRun, stoppingToken);
                 await _reportWriter.WriteReports(reports);
 
-                if (_globalState.Once)
+                if (!_globalState.Watch)
                 {
                     _appLifetime.StopApplication();
                     return;
                 }
+
+                _logger.LogInformation("Watching for changes...");
 
                 await _jobWatcher.WatchJobs(configPath, _globalState.DryRun, stoppingToken);
             }

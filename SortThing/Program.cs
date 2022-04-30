@@ -24,26 +24,24 @@ namespace SortThing
                 "The full path to the SortThing configuration file.  See the readme for an example: https://github.com/lucent-sea/SortThing");
             configOption.AddValidator(option =>
             {
-                if (File.Exists(option.GetValueOrDefault()?.ToString()))
+                if (!File.Exists(option.GetValueOrDefault()?.ToString()))
                 {
-                    return null;
+                    option.ErrorMessage = "Config file could not be found at the given path.";
                 }
-
-                return "Config file could not be found at the given path.";
             });
             rootCommand.AddOption(configOption);
 
             var jobOption = new Option<string>(
                 new[] { "--job-name", "-j" },
                 () => string.Empty,
-                "If specified, will only run the named job from the config, then exit.  Implies --once.");
+                "If specified, will only run the named job from the config, then exit.");
                         rootCommand.AddOption(jobOption);
 
-            var onceOption = new Option<bool>(
-                new[] { "--once", "-o" },
+            var watchOption = new Option<bool>(
+                new[] { "--watch", "-w" },
                 () => false,
-                "If true, will run sort jobs immediately, then exit.  If false, will run jobs, then block and monitor for changes in each job's source folder.");
-            rootCommand.AddOption(onceOption);
+                "If false, will run sort jobs immediately, then exit.  If true, will run jobs, then block and monitor for changes in each job's source folder.");
+            rootCommand.AddOption(watchOption);
 
             var dryRunOption = new Option<bool>(
                 new[] { "--dry-run", "-d" },
@@ -51,7 +49,7 @@ namespace SortThing
                 "If true, no file operations will actually be executed.");
             rootCommand.AddOption(dryRunOption);
 
-            rootCommand.Handler = CommandHandler.Create(async (string configPath, string jobName, bool once, bool dryRun) =>
+            rootCommand.SetHandler(async (string configPath, string jobName, bool watch, bool dryRun) =>
             {
                 using var host = Host.CreateDefaultBuilder(args)
                     .UseWindowsService(options =>
@@ -74,7 +72,7 @@ namespace SortThing
                             ConfigPath = configPath,
                             DryRun = dryRun,
                             JobName = jobName,
-                            Once = once
+                            Watch = watch
                         });
                         services.AddHostedService<SortBackgroundService>();
                     })
@@ -87,7 +85,7 @@ namespace SortThing
                     .Build();
                 
                 await host.RunAsync();
-            });
+            }, configOption, jobOption, watchOption, dryRunOption);
 
             return await rootCommand.InvokeAsync(args);
         }

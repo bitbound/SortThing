@@ -20,13 +20,12 @@ namespace SortThing.Services
 
     public class JobWatcher : IJobWatcher
     {
-        private static readonly List<FileSystemWatcher> _watchers = new();
-        private static readonly SemaphoreSlim _watchersLock = new(1, 1);
-        private static readonly ConcurrentDictionary<object, SemaphoreSlim> _jobRunLocks = new();
-
+        private readonly ConcurrentDictionary<object, SemaphoreSlim> _jobRunLocks = new();
         private readonly IJobRunner _jobRunner;
-        private readonly IReportWriter _reportWriter;
         private readonly ILogger<JobWatcher> _logger;
+        private readonly IReportWriter _reportWriter;
+        private readonly List<FileSystemWatcher> _watchers = new();
+        private readonly SemaphoreSlim _watchersLock = new(1, 1);
 
         public JobWatcher(IJobRunner jobRunner, IReportWriter reportWriter, ILogger<JobWatcher> logger)
         {
@@ -59,14 +58,14 @@ namespace SortThing.Services
         {
             try
             {
-                await _watchersLock.WaitAsync();
+                await _watchersLock.WaitAsync(cancelToken);
 
                 if (string.IsNullOrWhiteSpace(configPath))
                 {
                     throw new ArgumentNullException(nameof(configPath));
                 }
 
-                var configString = await File.ReadAllTextAsync(configPath);
+                var configString = await File.ReadAllTextAsync(configPath, cancelToken);
                 var config = JsonSerializer.Deserialize<SortConfig>(configString);
 
                 if (config is null)
@@ -78,7 +77,11 @@ namespace SortThing.Services
 
                 foreach (var job in config.Jobs)
                 {
-                    var watcher = new FileSystemWatcher(job.SourceDirectory);
+                    var key = Guid.NewGuid();
+                    var watcher = new FileSystemWatcher(job.SourceDirectory)
+                    {
+                        IncludeSubdirectories = true
+                    };
 
                     foreach (var ext in job.IncludeExtensions)
                     {
@@ -89,7 +92,7 @@ namespace SortThing.Services
 
                     watcher.Created += (sender, ev) =>
                     {
-                        _ = RunJob(sender, job, dryRun, cancelToken);
+                        _ = RunJob(key, job, dryRun, cancelToken);
                     };
 
                     watcher.EnableRaisingEvents = true;
@@ -101,19 +104,19 @@ namespace SortThing.Services
             }
         }
 
-        private async Task RunJob(object sender, SortJob job, bool dryRun, CancellationToken cancelToken)
+        private async Task RunJob(Guid jobKey, SortJob job, bool dryRun, CancellationToken cancelToken)
         {
-            var jobRunLock = _jobRunLocks.GetOrAdd(sender, key =>
+            var jobRunLock = _jobRunLocks.GetOrAdd(jobKey, key =>
             {
                 return new SemaphoreSlim(1, 1);
             });
 
-            if (!await jobRunLock.WaitAsync(0))
+            if (!await jobRunLock.WaitAsync(0, cancelToken))
             {
                 return;
             }
 
-            Debouncer.Debounce(sender, TimeSpan.FromSeconds(5), async () =>
+            Debouncer.Debounce(jobKey, TimeSpan.FromSeconds(5), async () =>
             {
                 try
                 {
@@ -122,7 +125,7 @@ namespace SortThing.Services
                 }
                 finally
                 {
-                    jobRunLock.Release();
+                    _jobRunLocks.TryRemove(jobKey, out _);
                 }
             });
          
